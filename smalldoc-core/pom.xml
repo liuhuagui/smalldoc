@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.github.liuhuagui</groupId>
+        <artifactId>smalldoc</artifactId>
+        <version>2.1</version>
+    </parent>
+
+    <artifactId>smalldoc-core</artifactId>
+    <name>smalldoc-core</name>
+    <description>A lightweight RestFul API doc tool developed based on comments and the JavaDoc API in tools.jar.
+    </description>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.github.smalldoc</groupId>
+            <artifactId>tools</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.alibaba</groupId>
+            <artifactId>fastjson</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>javax.servlet</groupId>
+            <artifactId>javax.servlet-api</artifactId>
+            <scope>provided</scope>
+            <optional>true</optional>
+        </dependency>
+    </dependencies>
+
+</project>
+
