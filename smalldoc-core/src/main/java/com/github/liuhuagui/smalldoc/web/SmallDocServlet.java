@@ -113,7 +113,10 @@ public class SmallDocServlet extends HttpServlet {
     private void returnResourceFile(String fileName, String uri, HttpServletResponse response)
             throws ServletException,
             IOException {
-
+        if (fileName.equals("")) {
+            response.sendRedirect(uri + "/");
+            return;
+        }
         String filePath = getFilePath(fileName);
 
         if (filePath.endsWith(".html")) {
@@ -128,7 +131,7 @@ public class SmallDocServlet extends HttpServlet {
         }
 
         String text = Utils.readFromResource(filePath);
-        if (text == null || fileName.equals("")) {
+        if (text == null) {
             response.sendRedirect(uri + "/");
             return;
         }
