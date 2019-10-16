@@ -28,6 +28,7 @@
   >**Module** jdk.javadoc
 **Package** com.sun.tools.javadoc
 This package and its contents are deprecated and may be removed in a future release. See javax.tools.**ToolProvider.getSystemDocumentationTool** and **javax.tools.DocumentationTool** for replacement functionality.
+  
   >**Module** jdk.javadoc
 **Package** com.sun.javadoc
 **Note:** The declarations in this package have been superseded by those in the package **jdk.javadoc.doclet**. For more information, see the Migration Guide in the documentation for that package.
@@ -128,7 +129,7 @@ public class WriteArticleController {
       <dependency>
 			<groupId>com.github.liuhuagui</groupId>
 			<artifactId>smalldoc-spring-boot-starter</artifactId>
-			<version>2.2</version>
+			<version>2.3</version>
 			<scope>test</scope>
       </dependency>
        ```
