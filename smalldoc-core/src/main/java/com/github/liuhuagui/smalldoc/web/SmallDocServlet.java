@@ -1,5 +1,6 @@
 package com.github.liuhuagui.smalldoc.web;
 
+import com.alibaba.fastjson.JSONObject;
 import com.github.liuhuagui.smalldoc.core.SmallDocContext;
 import com.github.liuhuagui.smalldoc.core.DefaultSmallDocletImpl;
 import com.github.liuhuagui.smalldoc.properties.SmallDocProperties;
@@ -25,7 +26,7 @@ public class SmallDocServlet extends HttpServlet {
 
     private SmallDocProperties smallDocProperties;
     private SmallDocContext smallDocContext;
-    private CompletableFuture<String> docsStrFuture;
+    private CompletableFuture<JSONObject> docsStrFuture;
 
     public SmallDocServlet(SmallDocProperties smallDocProperties) {
         this.smallDocProperties = smallDocProperties;
@@ -36,14 +37,13 @@ public class SmallDocServlet extends HttpServlet {
     public void init() throws ServletException {
         this.docsStrFuture = CompletableFuture.supplyAsync(() -> {
             smallDocContext.execute(new DefaultSmallDocletImpl(smallDocContext));
-            return smallDocContext.getDocsJSON().toJSONString();
+            return smallDocContext.getDocsJSON();
         });
     }
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
         String baseUrl = getURL(req);
-        smallDocContext.getDocsJSON().put("url", baseUrl);
 
         String contextPath = req.getContextPath();
         String servletPath = req.getServletPath();
@@ -79,11 +79,16 @@ public class SmallDocServlet extends HttpServlet {
         sb.append(contextPath);
         if (!contextPath.endsWith("/"))
             sb.append("/");
-        return sb.toString();
+
+        String baseUrl = sb.toString();
+        smallDocContext.getDocsJSON().put("url", baseUrl);
+        return baseUrl;
     }
 
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+        getURL(req);
+
         String contextPath = req.getContextPath();
         String servletPath = req.getServletPath();
         String requestURI = req.getRequestURI();
@@ -96,7 +101,7 @@ public class SmallDocServlet extends HttpServlet {
         if (path.equals("") || path.equals("/")) {
             resp.setContentType("application/json;charset=UTF-8");
             try {
-                resp.getWriter().write(docsStrFuture.get());
+                resp.getWriter().write(docsStrFuture.get().toJSONString());
             } catch (InterruptedException e) {
                 log.error("", e);
             } catch (ExecutionException e) {
