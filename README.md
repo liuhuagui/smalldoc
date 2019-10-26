@@ -1,6 +1,7 @@
 ### 项目
 - [https://github.com/liuhuagui/smalldoc](https://github.com/liuhuagui/smalldoc) 一个基于Java标准注释的 RESTful API 文档工具
 -  [**smalldoc-antd-react-ui**](https://github.com/liuhuagui/smalldoc-antd-react-ui)（https://github.com/liuhuagui/smalldoc-antd-react-ui）
+- [快速使用](https://github.com/liuhuagui/smalldoc#user-content-%E4%BD%BF%E7%94%A8)
 ### 为什么要造轮子？
 - 强迫症患者，接受不了**Swagger**的各式注解对代码的入侵造成的冗杂，更渴望清洁的代码；
 - 注解的使用需要一定的学习成本；
