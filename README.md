@@ -16,7 +16,7 @@
 - 优化参数名展示
 - 增加大量断言
 - 支持离线文档
-详情可以了解：[smalldoc-2.3.1更新日志](https://github.com/liuhuagui/smalldoc/doc/blob/master/smalldoc-2.3.1.md)
+详情可以了解：[smalldoc-2.3.1更新日志](https://github.com/liuhuagui/smalldoc/blob/master/doc/smalldoc-2.3.1.md)
 ### 特性
 - 基于Java源码、标准注释以及Tag生成文档，无代码入侵，保证代码整洁，同时保证开发人员的注释习惯与注释规范
 - 提供了友好的默认UI
