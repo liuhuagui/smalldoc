@@ -119,7 +119,8 @@ public class WriteArticleController {
 - **METHOD:** POST
 ![在这里插入图片描述](https://img-blog.csdnimg.cn/20191016155016143.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzMyMzMxMDcz,size_16,color_FFFFFF,t_70)
 ### 注意
-- **source-paths** 配置项表示额外的源码路径，项目的源码路径默认已经包含在内，不需要额外添加，只需要指定扫描的包，比如：`my.project.controller`
+- **source-paths** 配置项表示额外的源码路径（比如多模块项目下，其它源码路径），项目的源码路径默认已经包含在内，不需要额外添加，只需要指定扫描的包，比如：`my.project.controller`
+- **packages** 如果没有指定扫描的包，默认“/”，将扫描源码路径下所有包，建议给出指定包名，提升解析速度。
 - 程序只会解析类名为`*Controller`的源代码中的接口信息（规范）
 - 程序暂未支持Linux环境，在项目打包部署之前，记得关闭文档功能，关闭方式多种多样，比如：
   1. `spring.profiles.active=*`(**\*** 只要不是dev即可)，不再激活开发环境配置

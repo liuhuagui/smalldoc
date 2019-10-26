@@ -38,7 +38,7 @@ public class MappingDescStorer {
     private String[] analyseValue(AnnotationDesc.ElementValuePair elementValuePair) {
         String name = elementValuePair.element().name();
         Object value = elementValuePair.value().value();
-        if (name.equals("name"))
+        if (!value.getClass().isArray())
             return new String[]{value.toString().trim()};//去除首尾空白字符
         AnnotationValue[] values = (AnnotationValue[]) value;
         String[] strings = new String[values.length];

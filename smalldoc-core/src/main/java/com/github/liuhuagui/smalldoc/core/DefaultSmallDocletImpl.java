@@ -4,15 +4,14 @@ import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import com.github.liuhuagui.smalldoc.core.constant.Constants;
 import com.github.liuhuagui.smalldoc.core.storer.MappingDescStorer;
-import com.github.liuhuagui.smalldoc.core.storer.MethodDocTagsStorer;
+import com.github.liuhuagui.smalldoc.core.storer.MethodParamsStorer;
+import com.github.liuhuagui.smalldoc.core.storer.ParamTagStorer;
+import com.github.liuhuagui.smalldoc.util.Assert;
+import com.github.liuhuagui.smalldoc.util.TypeUtils;
 import com.github.liuhuagui.smalldoc.util.Utils;
 import com.sun.javadoc.*;
-import com.sun.tools.javac.code.TypeTag;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
-import java.lang.reflect.Field;
-import java.util.*;
+import java.util.ArrayList;
 
 
 /**
@@ -22,7 +21,6 @@ import java.util.*;
  * @author KaiKang
  */
 public class DefaultSmallDocletImpl extends SmallDoclet {
-    private static final Logger log = LoggerFactory.getLogger(DefaultSmallDocletImpl.class);
 
     public DefaultSmallDocletImpl(SmallDocContext smallDocContext) {
         super(smallDocContext);
@@ -111,6 +109,7 @@ public class DefaultSmallDocletImpl extends SmallDoclet {
      * @param classMappingInfo
      */
     private void handleMethodDoc(MethodDoc methodDoc, JSONArray methodsJSONArray, JSONObject classMappingInfo) {
+        setCurrentMethodSignature(methodDoc);//在上下文中设置当前解析的方法
         JSONObject methodMappingInfo = getMappingInfo(methodDoc);
         if (methodMappingInfo.isEmpty())//如果没有Mapping注解，则忽略此方法
             return;
@@ -190,9 +189,9 @@ public class DefaultSmallDocletImpl extends SmallDoclet {
     private JSONObject getReturnInfo(MethodDoc methodDoc) {
         JSONObject returnJSON = new JSONObject();
         Type rtype = methodDoc.returnType();
-        returnJSON.put("qtype", inferBeanName(rtype));
-        returnJSON.put("type", getParamTypeWithDimension(rtype));//获取带维度的返回值
-        returnJSON.put("typeArguments", getTypeArguments(rtype));
+        returnJSON.put("qtype", TypeUtils.inferBeanName(rtype));
+        returnJSON.put("type", TypeUtils.getParamTypeWithDimension(rtype));//获取带维度的返回值
+        returnJSON.put("typeArguments", TypeUtils.getTypeArguments(rtype, this));
 
         //如果包含返回标签，则解析返回标签的注释
         Tag[] returnTags = methodDoc.tags("@return");
@@ -200,14 +199,16 @@ public class DefaultSmallDocletImpl extends SmallDoclet {
             returnJSON.put("comment", returnTags[0].text());
 
         //如果不是库类型，保留字段
-        if (!Utils.isLibraryType(rtype, getLibraryTypePackages(), getLibraryTypeQualifiedNames())) {
-            addBean(rtype);
+        if (TypeUtils.isEntity(rtype, this)) {
+            TypeUtils.addBean(rtype, this);
         }
         return returnJSON;
     }
 
     /**
-     * 查询方法的所有参数信息
+     * 查询方法的所有参数信息<br>
+     * Note: 如果你的参数在方法注释中不存在对应的@param，那么你的参数将被忽略，这有时可能也成为你所期望的。
+     * 如果你的方法注释中存在了某个@param，而方法中不存该参数，将或抛出异常提示。
      *
      * @param methodDoc
      * @return
@@ -215,260 +216,70 @@ public class DefaultSmallDocletImpl extends SmallDoclet {
     private JSONArray getParamDocsInfo(MethodDoc methodDoc) {
         //处理参数
         JSONArray paramsJSONArray = new JSONArray();
-        //用于存储方法的标签信息，方便快速查找
-        MethodDocTagsStorer methodDocTagsStorer = new MethodDocTagsStorer(methodDoc);
-        for (Parameter parameterDoc : methodDoc.parameters()) {
-            handleParamDoc(parameterDoc, methodDocTagsStorer, paramsJSONArray);
+
+        MethodParamsStorer methodParamsStorer = new MethodParamsStorer(methodDoc);
+        ParamTag[] paramTags = methodDoc.paramTags();
+        for (ParamTag paramTag : paramTags) {
+            String paramName = paramTag.parameterName();
+            handleParamDoc(methodParamsStorer.getParam(paramName), paramTag, paramsJSONArray);
         }
         return paramsJSONArray;
     }
 
     /**
-     * 处理参数，如果你的参数在方法注释中不存在对应的@param，那么你的参数将被忽略，这有时可能也成为你所期望的。
+     * 处理参数
      *
      * @param parameterDoc
-     * @param methodDocTagsStorer
+     * @param paramTag
      * @param paramsJSONArray
      */
-    private void handleParamDoc(Parameter parameterDoc, MethodDocTagsStorer methodDocTagsStorer, JSONArray paramsJSONArray) {
-        String paramName = parameterDoc.name();
-        String comment = methodDocTagsStorer.getComment(paramName);
-        //如果你的参数在方法注释中不存在对应的@param，被忽略
-        if (comment == null)
-            return;
-
-        JSONObject paramJSON = new JSONObject();
-        paramsJSONArray.add(paramJSON);
-        paramJSON.put("name", paramName);
-        paramJSON.put("comment", comment);
-
+    private void handleParamDoc(Parameter parameterDoc, ParamTag paramTag, JSONArray paramsJSONArray) {
         Type ptype = parameterDoc.type();
-        paramJSON.put("qtype", inferBeanName(ptype));
-        paramJSON.put("type", getParamTypeWithDimension(ptype));//获取带维度的参数
-        paramJSON.put("typeArguments", getTypeArguments(ptype));
-
-        //如果不是库类型，保留字段
-        if (!Utils.isLibraryType(ptype, getLibraryTypePackages(), getLibraryTypeQualifiedNames())) {
-            addBean(ptype);
-        }
-    }
-
-    /**
-     * 获取带维度的参数
-     *
-     * @param ptype
-     * @return
-     */
-    private String getParamTypeWithDimension(Type ptype) {
-        return ptype.typeName() + ptype.dimension();
-    }
-
-    /**
-     * 增加到beans
-     *
-     * @param type
-     */
-    private void addBean(Type type) {
-        JSONObject beanFieldsJSON = getBeanFieldsJSON();
-        String beanName = inferBeanName(type);//推断BeanName
-        //1. 单线程工作，不用加锁。
-        //2. 判断该bean是否存在，避免循环引用造成的死循环
-        if (Objects.nonNull(beanFieldsJSON.get(beanName)))
-            return;
-        Map<String, com.sun.tools.javac.code.Type> typeVariableToTypeArgumentMap = null;
-        if (type.asParameterizedType() != null) {
-            typeVariableToTypeArgumentMap = typeVariableToTypeArgumentMap(type.asParameterizedType());
-        }
-
-        JSONArray fieldsJSONArray = new JSONArray();
-        beanFieldsJSON.put(beanName, fieldsJSONArray);
-        for (FieldDoc fieldDoc : getFieldDocs(type)) {
-            Type ftype = fieldDoc.type();
-            JSONObject fieldJSON = new JSONObject();
-            //推断类型变量TypeVariable的实际类型
-            inferTypeVariableActualType(typeVariableToTypeArgumentMap, ftype, fieldJSON);
-            fieldJSON.put("typeArguments", getTypeArgumentsOnFields(ftype, typeVariableToTypeArgumentMap));
-            fieldJSON.put("comment", fieldDoc.commentText());
-            fieldJSON.put("name", fieldDoc.name());
-            fieldsJSONArray.add(fieldJSON);
-
-            //如果不是库类型，保留字段
-            if (!Utils.isLibraryType(ftype, getLibraryTypePackages(), getLibraryTypeQualifiedNames())) {
-                addBean(ftype);
-            }
-        }
-    }
-
-    /**
-     * 获取字段集合。如果类实现了{@link java.io.Serializable} 或 {@link java.io.Externalizable}那么返回序列化字段集合，
-     * 否则，获取所有字段集合，不管Access Modifier
-     *
-     * @param type
-     * @return
-     */
-    private FieldDoc[] getFieldDocs(Type type) {
-        if (Objects.isNull(type) || Utils.isLibraryType(type, getLibraryTypePackages(), getLibraryTypeQualifiedNames()))
-            return new FieldDoc[0];
-        ClassDoc classDoc = type.asClassDoc();
-        FieldDoc[] fields = classDoc.serializableFields();
-        if (Utils.isEmpty(fields))
-            fields = classDoc.fields(false);//不管Access Modifier
-        return Utils.addAll(fields, getFieldDocs(classDoc.superclassType()));
-    }
-
-    /**
-     * 对于ParameterizedType（泛型调用），typeVariable的实际类型由传入的typeArgument决定，所以不同的typeArgments
-     * 会产生不同的beanFields信息，为保证正确的映射关系，ParameterizedType的BeanName需要保留泛型信息，同时要注意去除
-     * 数组维度。
-     *
-     * @param type
-     * @return
-     */
-    private String inferBeanName(Type type) {
-        //默认使用qualifiedTypeName做key
-        String key = type.qualifiedTypeName();
-        //typeArguments的传入会造成typeVariable字段的实际类型不同，
-        //为了每次都能够解析到具体字段类型，使用toString()作为key（携带泛型信息）。
-        ParameterizedType parameterizedType = type.asParameterizedType();//取出参数化类型做后续操作，防止数组维度造成的混乱。
-        if (parameterizedType != null)
-            key = parameterizedType.toString();
-        return key;
-    }
-
-    /**
-     * 不包含维度，但是包含完全限定和泛型参数信息
-     *
-     * @param type1
-     * @return
-     */
-    private String getQualifierName(com.sun.tools.javac.code.Type type1) {
-        return type1.hasTag(TypeTag.ARRAY) ? getQualifierName(((com.sun.tools.javac.code.Type.ArrayType) type1).elemtype) : type1.toString();
-    }
-
-    /**
-     * 不包含完全限定，泛型，但是包含维度。
-     *
-     * @param type1
-     * @param demision
-     * @return
-     */
-    private String getName(com.sun.tools.javac.code.Type type1, int demision) {
-        return type1.hasTag(TypeTag.ARRAY) ? getName(((com.sun.tools.javac.code.Type.ArrayType) type1).elemtype, ++demision) : type1.tsym.name.toString() + Utils.dimension(demision);
-    }
-
-    /**
-     * 获得typeVariables与typeArguments的映射
-     *
-     * @param pType 参数化类型
-     * @return
-     */
-    private Map<String, com.sun.tools.javac.code.Type> typeVariableToTypeArgumentMap(ParameterizedType pType) {
-        Field f = null;
-        try {
-            f = pType.getClass().getSuperclass().getDeclaredField("type");
-        } catch (NoSuchFieldException e) {
-            log.error("type fields not exist.", e);
-        }
-        com.sun.tools.javac.code.Type.ClassType o = null;
-        try {
-            f.setAccessible(true);
-            o = (com.sun.tools.javac.code.Type.ClassType) f.get(pType);
-        } catch (IllegalAccessException e) {
-            log.error("fields can't be accessed", e);
-        }
-
-        List<com.sun.tools.javac.code.Type> typeArguments = o.typarams_field;
-        List<com.sun.tools.javac.code.Type> typeVariables = ((com.sun.tools.javac.code.Type.ClassType) o.tsym.type).typarams_field;
-
-        if (typeArguments.size() == 0) {
-            log.warn("Failed to infer type, it is recommended to explicitly give the type parameter: {}.", pType.toString());
-            return null;
-        }
-        if (typeArguments.size() != typeVariables.size())
-            throw new IllegalArgumentException("This may be a bug，welcome to issue.");
-
-        HashMap<String, com.sun.tools.javac.code.Type> map = new HashMap<>();
-        for (int i = 0; i < typeVariables.size(); i++) {
-            map.put(typeVariables.get(i).toString(), typeArguments.get(i));
-        }
-        return map;
-    }
-
-
-    /**
-     * 获取泛型参数，并添加泛型信息到Beans。<br/>
-     * 使用JSONArray存储返回值。如果使用JSONObject，泛型变量的个数将无法计算。
-     *
-     * @param ptype
-     * @return
-     */
-    private JSONArray getTypeArguments(Type ptype) {
-        JSONArray typeArgumentsJSONArray = new JSONArray();
-        ParameterizedType parameterizedType;
-        if (Objects.nonNull(parameterizedType = ptype.asParameterizedType())) {
-            for (Type typeArgument : parameterizedType.typeArguments()) {
-                JSONObject jsonObject = new JSONObject();
-                jsonObject.put("type", getParamTypeWithDimension(typeArgument));
-                jsonObject.put("typeArguments", getTypeArguments(typeArgument));
-                jsonObject.put("qtype", inferBeanName(typeArgument));
-                typeArgumentsJSONArray.add(jsonObject);
-
-                //如果不是库类型，保留字段
-                if (!Utils.isLibraryType(typeArgument, getLibraryTypePackages(), getLibraryTypeQualifiedNames())) {
-                    addBean(typeArgument);
-                }
-            }
-        }
-        return typeArgumentsJSONArray;
-    }
-
-    /**
-     * 获取字段Fields的泛型参数，并添加泛型信息到Beans。<br/>
-     * <b>由于字段泛型参数可能是类型变量TypeVariable，所以需要单独处理。（对于方法或返回值中存在的类型变量TypeVariable，Controller接口应该去避免，所以不做解析支持。）</b>
-     * 使用JSONArray存储返回值。如果使用JSONObject，泛型变量的个数将无法计算。
-     *
-     * @param ptype                         字段的类型
-     * @param typeVariableToTypeArgumentMap 字段所属对象的类型参数TypeArgument与类型变量typeVariable的映射关系
-     * @return
-     */
-    private JSONArray getTypeArgumentsOnFields(Type ptype, Map<String, com.sun.tools.javac.code.Type> typeVariableToTypeArgumentMap) {
-        JSONArray typeArgumentsJSONArray = new JSONArray();
-        ParameterizedType parameterizedType;
-        if (Objects.nonNull(parameterizedType = ptype.asParameterizedType())) {
-            for (Type typeArgument : parameterizedType.typeArguments()) {
-                JSONObject jsonObject = new JSONObject();
-                //推断类型变量TypeVariable的实际类型
-                inferTypeVariableActualType(typeVariableToTypeArgumentMap, typeArgument, jsonObject);
-                jsonObject.put("typeArguments", getTypeArgumentsOnFields(typeArgument, typeVariableToTypeArgumentMap));
-                typeArgumentsJSONArray.add(jsonObject);
-
-                //如果不是库类型，保留字段
-                if (!Utils.isLibraryType(typeArgument, getLibraryTypePackages(), getLibraryTypeQualifiedNames())) {
-                    addBean(typeArgument);
-                }
-            }
-        }
-        return typeArgumentsJSONArray;
-    }
-
-    /**
-     * 推断类型变量TypeVariable的实际类型
-     *
-     * @param typeVariableToTypeArgumentMap 字段所属对象的类型参数TypeArgument与类型变量typeVariable的映射关系
-     * @param fieldOrFieldArgumentType      字段或字段参数类型
-     * @param jsonObject                    数据存储对象
-     */
-    private void inferTypeVariableActualType(Map<String, com.sun.tools.javac.code.Type> typeVariableToTypeArgumentMap, Type fieldOrFieldArgumentType, JSONObject jsonObject) {
-        //字段是typeVariable并且typeArguments被显示声明，可推断。
-        TypeVariable typeVariable = fieldOrFieldArgumentType.asTypeVariable();//取出类型变量做后续操作，防止数组维度造成的混乱。
-        if (typeVariable != null && typeVariableToTypeArgumentMap != null) {
-            com.sun.tools.javac.code.Type type1 = typeVariableToTypeArgumentMap.get(typeVariable.qualifiedTypeName());
-            jsonObject.put("qtype", getQualifierName(type1));
-            jsonObject.put("type", getName(type1, 0));
+        addParamBean(ptype);
+        //注意：如果数组类型ArrayTypeImpl中的元素类型是实体类型，那么该数组类型也是实体类型。
+        if (TypeUtils.isEntity(ptype, this)) {
+            handleEntityParamDoc(paramTag, paramsJSONArray, ptype);
         } else {
-            jsonObject.put("qtype", inferBeanName(fieldOrFieldArgumentType));
-            jsonObject.put("type", getParamTypeWithDimension(fieldOrFieldArgumentType));
+            handleNoEntityParamDoc(paramTag, paramsJSONArray, ptype);
         }
+    }
+
+    /**
+     * 不管参数是不是实体类型，一定要解析它的泛型参数
+     *
+     * @param type
+     */
+    private void addParamBean(Type type) {
+        TypeUtils.getTypeArguments(type, this);
+        if (TypeUtils.isEntity(type, this))
+            TypeUtils.addBean(type, this);
+    }
+
+    private void handleNoEntityParamDoc(ParamTag paramTag, JSONArray paramsJSONArray, Type ptype) {
+        if (TypeUtils.isCollection(ptype)) {
+            Type typeArgument = ptype.asParameterizedType().typeArguments()[0];
+            if (TypeUtils.isEntity(typeArgument, this)) {
+                ParamTagStorer.extractEntityParamTag(this, paramTag, typeArgument, true)
+                        .ifPresent(pStorer ->
+                                paramsJSONArray.addAll(pStorer.getParamStorers())
+                        );
+                return;
+            }
+            //如果类型参数不是实体，continue直接处理该类型
+        }
+        //如果该类型不是集合，直接处理该类型
+        ParamTagStorer.extractGeneralParamTag(this, paramTag, ptype)
+                .ifPresent(paramsJSONArray::add);
+    }
+
+
+    private void handleEntityParamDoc(ParamTag paramTag, JSONArray paramsJSONArray, Type ptype) {
+        boolean array = Utils.isNotBlank(ptype.dimension());
+        //注意：如果是数组类型ArrayTypeImpl，解析字段时默认跳过数组维度，默认得到的即是元素类型字段的映射。
+        ParamTagStorer.extractEntityParamTag(this, paramTag, ptype, array)
+                .ifPresent(pStorer ->
+                        paramsJSONArray.addAll(pStorer.getParamStorers())
+                );
     }
 
     /**

@@ -1,5 +1,6 @@
 package com.github.liuhuagui.smalldoc.util;
 
+import com.github.liuhuagui.smalldoc.core.DefaultSmallDocletImpl;
 import com.sun.javadoc.Type;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,46 +26,6 @@ public class Utils {
 
     public final static int DEFAULT_BUFFER_SIZE = 1024 * 4;
 
-
-    /**
-     * 判断类型是否为库类型。默认基本类型，java包，javax包，spring包为库类型。
-     *
-     * @param ptype
-     * @return
-     */
-    public static boolean isLibraryType(Type ptype) {
-        String qualifiedTypeName;
-        return ptype.isPrimitive() ||
-                (qualifiedTypeName = ptype.qualifiedTypeName()).startsWith("java.") ||
-                qualifiedTypeName.startsWith("javax.") ||
-                qualifiedTypeName.startsWith("org.springframework.");
-    }
-
-    /**
-     * 判断类型是否为库类型。默认基本类型，java包，javax包，spring包和配置类型。
-     *
-     * @param ptype
-     * @param libraryTypePackages
-     * @param libraryTypeQualifiedNames
-     * @return
-     */
-    public static boolean isLibraryType(Type ptype, List<String> libraryTypePackages, List<String> libraryTypeQualifiedNames) {
-        String qualifiedTypeName = ptype.qualifiedTypeName();
-        if (!isEmpty(libraryTypePackages)) {
-            for (String libraryTypePackage : libraryTypePackages) {
-                if (qualifiedTypeName.startsWith(libraryTypePackage))
-                    return true;
-            }
-        }
-        if (!isEmpty(libraryTypeQualifiedNames)) {
-            for (String libraryTypeQualifiedName : libraryTypeQualifiedNames) {
-                if (qualifiedTypeName.equals(libraryTypeQualifiedName))
-                    return true;
-            }
-        }
-        return isLibraryType(ptype);
-    }
-
     /**
      * <p>Checks if an array of Objects is not empty and not {@code null}.
      *
@@ -76,17 +37,21 @@ public class Utils {
         return !isEmpty(array);
     }
 
+    public static boolean isNotEmpty(final Collection<?> coll) {
+        return !isEmpty(coll);
+    }
+
     /**
      * <p>Shallow clones an array returning a typecast result and handling
      * {@code null}.
-     *
+     * <p>
      * <p>The objects in the array are not cloned, thus there is no special
      * handling for multi-dimensional arrays.
-     *
+     * <p>
      * <p>This method returns {@code null} for a {@code null} input array.
      *
-     * @param <T> the component type of the array
-     * @param array  the array to shallow clone, may be {@code null}
+     * @param <T>   the component type of the array
+     * @param array the array to shallow clone, may be {@code null}
      * @return the cloned array, {@code null} if {@code null} input
      */
     public static <T> T[] clone(final T[] array) {
@@ -101,7 +66,7 @@ public class Utils {
      * <p>The new array contains all of the element of {@code array1} followed
      * by all of the elements {@code array2}. When an array is returned, it is always
      * a new array.
-     *
+     * <p>
      * <pre>
      * ArrayUtils.addAll(null, null)     = null
      * ArrayUtils.addAll(array1, null)   = cloned copy of array1
@@ -111,12 +76,12 @@ public class Utils {
      * ArrayUtils.addAll(["a", "b", "c"], ["1", "2", "3"]) = ["a", "b", "c", "1", "2", "3"]
      * </pre>
      *
-     * @param <T> the component type of the array
-     * @param array1  the first array whose elements are added to the new array, may be {@code null}
-     * @param array2  the second array whose elements are added to the new array, may be {@code null}
+     * @param <T>    the component type of the array
+     * @param array1 the first array whose elements are added to the new array, may be {@code null}
+     * @param array2 the second array whose elements are added to the new array, may be {@code null}
      * @return The new array, {@code null} if both arrays are {@code null}.
-     *      The type of the new array is the type of the first array,
-     *      unless the first array is null, in which case the type is the same as the second array.
+     * The type of the new array is the type of the first array,
+     * unless the first array is null, in which case the type is the same as the second array.
      * @throws IllegalArgumentException if the array types are incompatible
      */
     public static <T> T[] addAll(final T[] array1, final T... array2) {
@@ -245,6 +210,10 @@ public class Utils {
             }
         }
         return true;
+    }
+
+    public static boolean isNotBlank(final CharSequence cs) {
+        return !isBlank(cs);
     }
 
     /**

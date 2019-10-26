@@ -2,13 +2,16 @@ package com.github.liuhuagui.smalldoc.core;
 
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
+import com.github.liuhuagui.smalldoc.core.storer.FieldDocStorer;
 import com.github.liuhuagui.smalldoc.properties.SmallDocProperties;
 import com.github.liuhuagui.smalldoc.util.Utils;
 import com.sun.tools.javadoc.Main;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 线程不安全，但是文档结构，只在工程启动时生成一次。<br>
@@ -37,7 +40,12 @@ public class SmallDocContext {
     /**
      * 装载bean的字段信息
      */
-    private final JSONObject beanFieldsJSON;
+    private final Map<String,List<FieldDocStorer>> beanFieldsMap;
+
+    /**
+     * 存储实体类型，字段名与字段信息的映射关系
+     */
+    private final Map<String,Map<String,FieldDocStorer>> entityAndFieldMap;
 
     /**
      * 源文件路径
@@ -54,12 +62,17 @@ public class SmallDocContext {
     public SmallDocContext(SmallDocProperties smallDocProperties) {
         this.docsJSON = new JSONObject();
         this.classesJSONArray = new JSONArray();
-        this.beanFieldsJSON = new JSONObject();
+        this.beanFieldsMap = new HashMap<>();
+        this.entityAndFieldMap = new HashMap<>();
+
         this.smallDocProperties = smallDocProperties;
         this.paths = smallDocProperties.getSourcePaths();
         this.packages = smallDocProperties.getPackages();
-        //默认的源码路径——user.dir
+        //默认已添加当前项目源码路径——user.dir
         this.paths.add(DEFAULT_SOURCE_PATH);
+        //如果没有指定扫描的包，将扫描源码路径下所有包，建议给出指定包名，提升解析速度
+        if (packages.isEmpty())
+            this.packages.add("/");
 
         this.docsJSON.put("projectName", smallDocProperties.getProjectName());
         this.docsJSON.put("jdkVersion", System.getProperty("java.version"));
@@ -67,7 +80,7 @@ public class SmallDocContext {
         this.docsJSON.put("encoding", System.getProperty("file.encoding"));
         this.docsJSON.put("support", "https://github.com/liuhuagui/smalldoc");
         this.docsJSON.put("classes", this.classesJSONArray);
-        this.docsJSON.put("beans", this.beanFieldsJSON);
+        this.docsJSON.put("beans", this.beanFieldsMap);
     }
 
     /**
@@ -104,33 +117,19 @@ public class SmallDocContext {
         return classesJSONArray;
     }
 
-    public JSONObject getBeanFieldsJSON() {
-        return beanFieldsJSON;
+    public Map<String, List<FieldDocStorer>> getBeanFieldsMap() {
+        return beanFieldsMap;
+    }
+
+    public Map<String, Map<String, FieldDocStorer>> getEntityAndFieldMap() {
+        return entityAndFieldMap;
     }
 
     public List<String> getPaths() {
         return paths;
     }
 
-    public void setPaths(List<String> paths) {
-        this.paths = paths;
-    }
-
-    public SmallDocContext withPaths(List<String> paths) {
-        this.paths = paths;
-        return this;
-    }
-
     public List<String> getPackages() {
         return packages;
-    }
-
-    public void setPackages(List<String> packages) {
-        this.packages = packages;
-    }
-
-    public SmallDocContext withPackages(List<String> packages) {
-        this.packages = packages;
-        return this;
     }
 }

@@ -1,8 +1,10 @@
 package com.github.liuhuagui.smalldoc.web;
 
+import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
-import com.github.liuhuagui.smalldoc.core.SmallDocContext;
+import com.alibaba.fastjson.serializer.SerializerFeature;
 import com.github.liuhuagui.smalldoc.core.DefaultSmallDocletImpl;
+import com.github.liuhuagui.smalldoc.core.SmallDocContext;
 import com.github.liuhuagui.smalldoc.properties.SmallDocProperties;
 import com.github.liuhuagui.smalldoc.util.Utils;
 import org.slf4j.Logger;
@@ -18,7 +20,7 @@ import java.util.concurrent.ExecutionException;
 
 public class SmallDocServlet extends HttpServlet {
     public static final String TITLE = "\\$\\{title}";
-    public static final String DOCURL = "\\$\\{docurl}";
+    public static final String DOCJSON = "\\$\\{docJSON}";
     public static final String DEFAULT_SERVLET_PATH = "smalldoc";
 
     private static Logger log = LoggerFactory.getLogger(SmallDocServlet.class);
@@ -26,7 +28,7 @@ public class SmallDocServlet extends HttpServlet {
 
     private SmallDocProperties smallDocProperties;
     private SmallDocContext smallDocContext;
-    private CompletableFuture<JSONObject> docsStrFuture;
+    private CompletableFuture<JSONObject> docJSONFuture;
 
     public SmallDocServlet(SmallDocProperties smallDocProperties) {
         this.smallDocProperties = smallDocProperties;
@@ -35,7 +37,7 @@ public class SmallDocServlet extends HttpServlet {
 
     @Override
     public void init() throws ServletException {
-        this.docsStrFuture = CompletableFuture.supplyAsync(() -> {
+        this.docJSONFuture = CompletableFuture.supplyAsync(() -> {
             smallDocContext.execute(new DefaultSmallDocletImpl(smallDocContext));
             return smallDocContext.getDocsJSON();
         });
@@ -60,7 +62,15 @@ public class SmallDocServlet extends HttpServlet {
             String filePath = getFilePath("/index.html");
             String text = Utils.readFromResource(filePath);
             text = text.replaceFirst(TITLE, smallDocProperties.getProjectName() == null ? DEFAULT_SERVLET_PATH : smallDocProperties.getProjectName());
-            text = text.replaceFirst(DOCURL, baseUrl + servletPath.substring(1));
+            try {
+                //做转义防止前端JSON解析失败
+                String escapeStr = JSON.toJSONString(docJSONFuture.get().toString(), SerializerFeature.WriteSlashAsSpecial);
+                //去除首尾引号
+                escapeStr = escapeStr.substring(1,escapeStr.length()-1);
+                text = text.replaceFirst(DOCJSON, escapeStr);
+            } catch (InterruptedException | ExecutionException e) {
+                log.error("", e);
+            }
             resp.getWriter().write(text);
             return;
         }
@@ -101,10 +111,8 @@ public class SmallDocServlet extends HttpServlet {
         if (path.equals("") || path.equals("/")) {
             resp.setContentType("application/json;charset=UTF-8");
             try {
-                resp.getWriter().write(docsStrFuture.get().toJSONString());
-            } catch (InterruptedException e) {
-                log.error("", e);
-            } catch (ExecutionException e) {
+                resp.getWriter().write(docJSONFuture.get().toJSONString());
+            } catch (InterruptedException | ExecutionException e) {
                 log.error("", e);
             }
             return;
