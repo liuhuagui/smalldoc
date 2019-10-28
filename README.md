@@ -58,7 +58,7 @@ This package and its contents are deprecated and may be removed in a future rele
 <dependency>
     <groupId>com.github.liuhuagui</groupId>
     <artifactId>smalldoc-spring-boot-starter</artifactId>
-    <version>2.3</version>
+    <version>2.3.1</version>
 </dependency>
 ```
 ##### 配置
@@ -142,7 +142,7 @@ public class WriteArticleController {
       <dependency>
 			<groupId>com.github.liuhuagui</groupId>
 			<artifactId>smalldoc-spring-boot-starter</artifactId>
-			<version>2.3</version>
+			<version>2.3.1</version>
 			<scope>test</scope>
       </dependency>
        ```
