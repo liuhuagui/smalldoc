@@ -11,4 +11,5 @@ public class Constants {
 
     public static final String CONTROLLER = "Controller";
 
+    public static final String REST = "Rest";
 }
