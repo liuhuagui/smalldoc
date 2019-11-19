@@ -46,7 +46,7 @@ public class DefaultSmallDocletImpl extends SmallDoclet {
     private void handleClassDocs(RootDoc root) {
         ClassDoc[] classes = root.classes();
         for (ClassDoc classDoc : classes) {
-            if (!classDoc.name().endsWith(Constants.CONTROLLER))//只解析*Controller类
+            if (!classDoc.name().endsWith(Constants.CONTROLLER) && !classDoc.name().endsWith(Constants.REST))//解析*Controller类和Rest类
                 continue;
             handleClassDoc(classDoc);
         }
