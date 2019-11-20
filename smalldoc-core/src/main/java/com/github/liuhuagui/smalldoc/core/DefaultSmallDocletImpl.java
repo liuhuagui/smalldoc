@@ -10,6 +10,8 @@ import com.github.liuhuagui.smalldoc.util.Assert;
 import com.github.liuhuagui.smalldoc.util.TypeUtils;
 import com.github.liuhuagui.smalldoc.util.Utils;
 import com.sun.javadoc.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 
@@ -21,6 +23,7 @@ import java.util.ArrayList;
  * @author KaiKang
  */
 public class DefaultSmallDocletImpl extends SmallDoclet {
+    private static final Logger log = LoggerFactory.getLogger(DefaultSmallDocletImpl.class);
 
     public DefaultSmallDocletImpl(SmallDocContext smallDocContext) {
         super(smallDocContext);
@@ -94,9 +97,14 @@ public class DefaultSmallDocletImpl extends SmallDoclet {
     private JSONArray getMehodDocsInfo(ClassDoc classDoc, JSONObject classMappingInfo) {
         JSONArray methodsJSONArray = new JSONArray();
         for (MethodDoc methodDoc : classDoc.methods()) {
-            if (!methodDoc.isPublic())
-                continue;
-            handleMethodDoc(methodDoc, methodsJSONArray, classMappingInfo);
+            try {
+                if (!methodDoc.isPublic())
+                    continue;
+                handleMethodDoc(methodDoc, methodsJSONArray, classMappingInfo);
+            } catch (Exception e) {
+                log.error("处理方法异常, 从列表删除，请检查接口文档！", e);
+                methodsJSONArray.remove(methodsJSONArray.size()-1);
+            }
         }
         return methodsJSONArray;
     }
