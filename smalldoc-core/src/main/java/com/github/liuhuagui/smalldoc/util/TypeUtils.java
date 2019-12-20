@@ -124,7 +124,7 @@ public class TypeUtils {
 
             //如果是List或Set
             if (fieldDocStorer.isCollection()) {
-                Type typeArgument = ftype.asParameterizedType().typeArguments()[0];
+                Type typeArgument = ftype.asParameterizedType().typeArguments()[0];//仅支持单typeArgument
                 fieldDocStorer.setEleName(inferBeanName(typeArgument));
                 fieldDocStorer.setEntity(isEntity(typeArgument, doclet));
             }
@@ -268,7 +268,7 @@ public class TypeUtils {
     /**
      * 获取字段Fields的泛型参数，并添加泛型信息到Beans。<br/>
      * <b>由于字段泛型参数可能是类型变量TypeVariable，所以需要单独处理。（对于方法或返回值中存在的类型变量TypeVariable，Controller接口应该去避免，所以不做解析支持。）</b>
-     * 使用JSONArray存储返回值。如果使用JSONObject，泛型变量的个数将无法计算。
+     * 使用JSONArray存储返回值。如果使用JSONObject，泛型变量的个数不方便计算。
      *
      * @param ptype                         字段的类型
      * @param typeVariableToTypeArgumentMap 字段所属对象的类型参数TypeArgument与类型变量typeVariable的映射关系

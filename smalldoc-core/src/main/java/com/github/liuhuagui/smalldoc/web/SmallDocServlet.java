@@ -14,6 +14,7 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import javax.sound.midi.Soundbank;
 import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -45,7 +46,7 @@ public class SmallDocServlet extends HttpServlet {
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-        String baseUrl = getURL(req);
+        getURL(req);//获取baseUrl
 
         String contextPath = req.getContextPath();
         String servletPath = req.getServletPath();
@@ -63,8 +64,9 @@ public class SmallDocServlet extends HttpServlet {
             String text = Utils.readFromResource(filePath);
             text = text.replaceFirst(TITLE, smallDocProperties.getProjectName() == null ? DEFAULT_SERVLET_PATH : smallDocProperties.getProjectName());
             try {
-                //做转义防止前端JSON解析失败
-                String escapeStr = JSON.toJSONString(docJSONFuture.get().toString(), SerializerFeature.WriteSlashAsSpecial);
+                // 1. 禁止循环引用检测，否则会产生“$ref”，在正则时出现异常（“$”在Java正则中表示group引用） —— java.lang.IllegalArgumentException: Illegal group reference
+                // 2. 对特殊字符使用Slash转义，防止浏览器JSON.parse失败
+                String escapeStr = JSON.toJSONString(docJSONFuture.get().toString(SerializerFeature.DisableCircularReferenceDetect), SerializerFeature.WriteSlashAsSpecial);
                 //去除首尾引号
                 escapeStr = escapeStr.substring(1,escapeStr.length()-1);
                 text = text.replaceFirst(DOCJSON, escapeStr);
@@ -97,7 +99,7 @@ public class SmallDocServlet extends HttpServlet {
 
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-        getURL(req);
+        getURL(req);//获取baseUrl
 
         String contextPath = req.getContextPath();
         String servletPath = req.getServletPath();
@@ -111,7 +113,7 @@ public class SmallDocServlet extends HttpServlet {
         if (path.equals("") || path.equals("/")) {
             resp.setContentType("application/json;charset=UTF-8");
             try {
-                resp.getWriter().write(docJSONFuture.get().toJSONString());
+                resp.getWriter().write(docJSONFuture.get().toString(SerializerFeature.DisableCircularReferenceDetect));
             } catch (InterruptedException | ExecutionException e) {
                 log.error("", e);
             }

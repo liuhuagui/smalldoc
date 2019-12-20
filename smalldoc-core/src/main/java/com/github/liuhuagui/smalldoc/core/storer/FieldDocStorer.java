@@ -13,6 +13,9 @@ public class FieldDocStorer {
      */
     private String name;
 
+    /**
+     * 字段类型的完全限定名
+     */
     private String qtype;
 
     private String type;

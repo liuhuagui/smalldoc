@@ -261,7 +261,7 @@ public class DefaultSmallDocletImpl extends SmallDoclet {
             if (TypeUtils.isEntity(typeArgument, this)) {
                 ParamTagStorer.extractEntityParamTag(this, paramTag, typeArgument, true)
                         .ifPresent(pStorer ->
-                                paramsJSONArray.addAll(pStorer.getParamStorers())
+                                paramsJSONArray.addAll(pStorer.getFieldParamStorers())
                         );
                 return;
             }
@@ -278,7 +278,7 @@ public class DefaultSmallDocletImpl extends SmallDoclet {
         //注意：如果是数组类型ArrayTypeImpl，解析字段时默认跳过数组维度，默认得到的即是元素类型字段的映射。
         ParamTagStorer.extractEntityParamTag(this, paramTag, ptype, array)
                 .ifPresent(pStorer ->
-                        paramsJSONArray.addAll(pStorer.getParamStorers())
+                        paramsJSONArray.addAll(pStorer.getFieldParamStorers())
                 );
     }
 
