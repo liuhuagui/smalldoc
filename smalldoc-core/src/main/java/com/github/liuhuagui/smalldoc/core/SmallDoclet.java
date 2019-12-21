@@ -82,6 +82,10 @@ public abstract class SmallDoclet extends Doclet {
         return smallDocContext.getSmallDocProperties().getLibraryTypeQualifiedNames();
     }
 
+    public String nameRegex(){
+        return smallDocContext.getSmallDocProperties().getNameRegex();
+    }
+
     public String getCurrentMethodSignature() {
         return currentMethodSignature;
     }

@@ -9,6 +9,7 @@ import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.Field;
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * 类型处理工具
@@ -113,10 +114,10 @@ public class TypeUtils {
         for (FieldDoc fieldDoc : getFieldDocs(type, doclet)) {
             Type ftype = fieldDoc.type();
             FieldDocStorer fieldDocStorer = new FieldDocStorer();
-
             //推断类型变量TypeVariable的实际类型
             inferTypeVariableActualType(typeVariableToTypeArgumentMap, ftype, fieldDocStorer);
-            fieldDocStorer.setTypeArguments(getTypeArgumentsOnFields(ftype, typeVariableToTypeArgumentMap, doclet));
+            if (fieldDocStorer.getTypeArguments() == null)
+                fieldDocStorer.setTypeArguments(getTypeArgumentsOnFields(ftype, typeVariableToTypeArgumentMap, doclet));
             fieldDocStorer.setComment(fieldDoc.commentText());
             fieldDocStorer.setName(fieldDoc.name());
             fieldDocStorer.setCollection(TypeUtils.isCollection(ftype));
@@ -283,10 +284,11 @@ public class TypeUtils {
                 FieldDocStorer typeArgumentStorer = new FieldDocStorer();
                 //推断类型变量TypeVariable的实际类型
                 inferTypeVariableActualType(typeVariableToTypeArgumentMap, typeArgument, typeArgumentStorer);
-                typeArgumentStorer.setTypeArguments(getTypeArgumentsOnFields(typeArgument, typeVariableToTypeArgumentMap, doclet));
+                if (typeArgumentStorer.getTypeArguments() == null)
+                    typeArgumentStorer.setTypeArguments(getTypeArgumentsOnFields(typeArgument, typeVariableToTypeArgumentMap, doclet));
                 typeArgumentStorers.add(typeArgumentStorer);
 
-                //如果不是库类型，保留字段
+                //如果不是库类型，保留它的字段
                 if (isEntity(typeArgument, doclet)) {
                     addBean(typeArgument, doclet);
                 }
@@ -307,11 +309,33 @@ public class TypeUtils {
         TypeVariable typeVariable = fieldOrFieldArgumentType.asTypeVariable();//取出类型变量做后续操作，防止数组维度造成的混乱。
         if (typeVariable != null && typeVariableToTypeArgumentMap != null) {
             com.sun.tools.javac.code.Type type1 = typeVariableToTypeArgumentMap.get(typeVariable.qualifiedTypeName());
+            //To change the way that we handle with typeArguments when fieldOrFieldArgumentType is TypeVariable & Parameterized.
+            fieldDocStorer.setTypeArguments(getTypeArgumentsOnTypeVariable(type1));
             fieldDocStorer.setQtype(getQualifierName(type1));
             fieldDocStorer.setType(getName(type1, 0));
         } else {
             fieldDocStorer.setQtype(inferBeanName(fieldOrFieldArgumentType));
             fieldDocStorer.setType(getParamTypeWithDimension(fieldOrFieldArgumentType));
         }
+    }
+
+    /**
+     * To handle with typeArguments on TypeVariable.<br>
+     * 这里不用再{@link #addBean(Type, DefaultSmallDocletImpl)}，因为既然是TypeVariable，
+     * 应该明确出现在TypeArguments中，在解析 ownerType’fields 之前ownerType&lt;TypeArguments>应该被优先处理。
+     *
+     * @param typeVariable
+     */
+    private static List<FieldDocStorer> getTypeArgumentsOnTypeVariable(com.sun.tools.javac.code.Type typeVariable) {
+        if (typeVariable.isParameterized()) {
+            return typeVariable.getTypeArguments().stream().map(typeArgument -> {
+                FieldDocStorer typeArgumentStorer = new FieldDocStorer();
+                typeArgumentStorer.setQtype(getQualifierName(typeArgument));
+                typeArgumentStorer.setType(getName(typeArgument, 0));
+                typeArgumentStorer.setTypeArguments(getTypeArgumentsOnTypeVariable(typeArgument));
+                return typeArgumentStorer;
+            }).collect(Collectors.toList());
+        }
+        return null;
     }
 }

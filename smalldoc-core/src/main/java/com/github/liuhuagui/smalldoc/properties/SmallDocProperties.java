@@ -7,6 +7,12 @@ import java.util.List;
 public class SmallDocProperties {
     private boolean enabled;
 
+    /**
+     * A regular expression matched the name of classes which you wander to parse to RESTFul API Doc,
+     * which will improve program performance.
+     */
+    private String nameRegex;
+
     private String urlPattern;
     /**
      * project name
@@ -37,6 +43,14 @@ public class SmallDocProperties {
 
     public void setEnabled(boolean enabled) {
         this.enabled = enabled;
+    }
+
+    public String getNameRegex() {
+        return nameRegex;
+    }
+
+    public void setNameRegex(String nameRegex) {
+        this.nameRegex = nameRegex;
     }
 
     public String getUrlPattern() {

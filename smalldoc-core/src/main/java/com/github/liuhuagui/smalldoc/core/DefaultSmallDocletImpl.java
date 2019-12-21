@@ -45,8 +45,11 @@ public class DefaultSmallDocletImpl extends SmallDoclet {
      */
     private void handleClassDocs(RootDoc root) {
         ClassDoc[] classes = root.classes();
+        String nameRegex = nameRegex();
         for (ClassDoc classDoc : classes) {
-            if (!classDoc.name().endsWith(Constants.CONTROLLER) && !classDoc.name().endsWith(Constants.REST))//解析*Controller类和Rest类
+            String name = classDoc.name();
+            if (!name.endsWith(Constants.CONTROLLER)
+                    && (nameRegex == null || !name.matches(nameRegex)))//配置你想要处理的类，提高程序性能
                 continue;
             handleClassDoc(classDoc);
         }
@@ -191,6 +194,7 @@ public class DefaultSmallDocletImpl extends SmallDoclet {
         Type rtype = methodDoc.returnType();
         returnJSON.put("qtype", TypeUtils.inferBeanName(rtype));
         returnJSON.put("type", TypeUtils.getParamTypeWithDimension(rtype));//获取带维度的返回值
+        //先处理类型参数，后面再去处理字段（保证TypeVariable的字段被处理）
         returnJSON.put("typeArguments", TypeUtils.getTypeArguments(rtype, this));
 
         //如果包含返回标签，则解析返回标签的注释
@@ -250,6 +254,7 @@ public class DefaultSmallDocletImpl extends SmallDoclet {
      * @param type
      */
     private void addParamBean(Type type) {
+        //先处理类型参数，后面再处理字段（保证TypeVariable的字段被处理）
         TypeUtils.getTypeArguments(type, this);
         if (TypeUtils.isEntity(type, this))
             TypeUtils.addBean(type, this);
