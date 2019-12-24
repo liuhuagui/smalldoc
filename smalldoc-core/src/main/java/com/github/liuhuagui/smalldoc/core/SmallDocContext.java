@@ -33,9 +33,9 @@ public class SmallDocContext {
     private final JSONObject docsJSON;
 
     /**
-     * 所有类的文档结构
+     * 所有包的文档结构。key是包名，value为包内所有满足处理条件的类
      */
-    private final JSONArray classesJSONArray;
+    private final JSONObject packagesJSON;
 
     /**
      * 装载bean的字段信息
@@ -59,9 +59,14 @@ public class SmallDocContext {
 
     private SmallDocProperties smallDocProperties;
 
+    /**
+     * 当前正在解析的方法的签名
+     */
+    private String currentMethodSignature;
+
     public SmallDocContext(SmallDocProperties smallDocProperties) {
         this.docsJSON = new JSONObject();
-        this.classesJSONArray = new JSONArray();
+        this.packagesJSON = new JSONObject();
         this.beanFieldsMap = new HashMap<>();
         this.entityAndFieldMap = new HashMap<>();
 
@@ -79,7 +84,7 @@ public class SmallDocContext {
         this.docsJSON.put("osName", System.getProperty("os.name"));
         this.docsJSON.put("encoding", System.getProperty("file.encoding"));
         this.docsJSON.put("support", "https://github.com/liuhuagui/smalldoc");
-        this.docsJSON.put("classes", this.classesJSONArray);
+        this.docsJSON.put("packages", this.packagesJSON);
         this.docsJSON.put("beans", this.beanFieldsMap);
     }
 
@@ -113,8 +118,8 @@ public class SmallDocContext {
         return docsJSON;
     }
 
-    public JSONArray getClassesJSONArray() {
-        return classesJSONArray;
+    public JSONObject getPackagesJSON() {
+        return packagesJSON;
     }
 
     public Map<String, List<FieldDocStorer>> getBeanFieldsMap() {
@@ -131,5 +136,13 @@ public class SmallDocContext {
 
     public List<String> getPackages() {
         return packages;
+    }
+
+    public String getCurrentMethodSignature() {
+        return currentMethodSignature;
+    }
+
+    public void setCurrentMethodSignature(String currentMethodSignature) {
+        this.currentMethodSignature = currentMethodSignature;
     }
 }

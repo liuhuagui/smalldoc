@@ -1,23 +1,20 @@
 package com.github.liuhuagui.smalldoc.core;
 
 import com.alibaba.fastjson.JSONArray;
+import com.alibaba.fastjson.JSONObject;
 import com.github.liuhuagui.smalldoc.core.storer.FieldDocStorer;
 import com.github.liuhuagui.smalldoc.util.Assert;
-import com.sun.javadoc.Doclet;
-import com.sun.javadoc.LanguageVersion;
-import com.sun.javadoc.MethodDoc;
-import com.sun.javadoc.RootDoc;
+import com.sun.javadoc.*;
 
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
+import static com.github.liuhuagui.smalldoc.core.constant.Constants.CLASSES;
+
 public abstract class SmallDoclet extends Doclet {
     private SmallDocContext smallDocContext;
-
-    /**
-     * 当前正在解析的方法的签名
-     */
-    private String currentMethodSignature;
 
     public SmallDoclet(SmallDocContext smallDocContext) {
         this.smallDocContext = smallDocContext;
@@ -56,8 +53,31 @@ public abstract class SmallDoclet extends Doclet {
         SmallDoclet.doclet = doclet;
     }
 
-    protected JSONArray getClassesJSONArray() {
-        return smallDocContext.getClassesJSONArray();
+    protected abstract JSONObject handleClassDoc(ClassDoc classDoc);
+
+    protected void addClassDoc(ClassDoc classDoc) {
+        PackageDoc packageDoc = classDoc.containingPackage();
+        String packageName = packageDoc.toString();
+
+        JSONObject packagesJSON = smallDocContext.getPackagesJSON();
+        JSONObject packageJSON = packagesJSON.getJSONObject(packageName);
+        if (packageJSON != null) {
+            JSONArray classes = packageJSON.getJSONArray(CLASSES);
+            classes.add(handleClassDoc(classDoc));
+        } else {
+            JSONArray classes = new JSONArray();
+            classes.add(handleClassDoc(classDoc));
+            packageJSON = new JSONObject();
+            packageJSON.put(CLASSES, classes);
+            packageJSON.put("comment", packageDoc.commentText());
+
+            Tag[] urls = packageDoc.tags("url");
+            if (urls != null && urls.length > 0) {
+                String url = urls[0].text();
+                packageJSON.put("url", url.endsWith("/") ? url : url + "/");
+            }
+            packagesJSON.put(packageName, packageJSON);
+        }
     }
 
     public Map<String, List<FieldDocStorer>> getBeanFieldsMap() {
@@ -82,15 +102,20 @@ public abstract class SmallDoclet extends Doclet {
         return smallDocContext.getSmallDocProperties().getLibraryTypeQualifiedNames();
     }
 
-    public String nameRegex(){
+    public String nameRegex() {
         return smallDocContext.getSmallDocProperties().getNameRegex();
     }
 
     public String getCurrentMethodSignature() {
-        return currentMethodSignature;
+        return smallDocContext.getCurrentMethodSignature();
     }
 
+    /**
+     * Set the current handling method in the context.
+     *
+     * @param currentMethodDoc
+     */
     public void setCurrentMethodSignature(MethodDoc currentMethodDoc) {
-        this.currentMethodSignature = currentMethodDoc.qualifiedName() + currentMethodDoc.flatSignature();
+        smallDocContext.setCurrentMethodSignature(currentMethodDoc.qualifiedName() + currentMethodDoc.flatSignature());
     }
 }

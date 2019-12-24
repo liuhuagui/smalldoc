@@ -12,6 +12,7 @@ import com.github.liuhuagui.smalldoc.util.Utils;
 import com.sun.javadoc.*;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 
 
 /**
@@ -51,16 +52,12 @@ public class DefaultSmallDocletImpl extends SmallDoclet {
             if (!name.endsWith(Constants.CONTROLLER)
                     && (nameRegex == null || !name.matches(nameRegex)))//配置你想要处理的类，提高程序性能
                 continue;
-            handleClassDoc(classDoc);
+            addClassDoc(classDoc);
         }
     }
 
-    /**
-     * 处理单个类
-     *
-     * @param classDoc
-     */
-    private void handleClassDoc(ClassDoc classDoc) {
+    @Override
+    protected JSONObject handleClassDoc(ClassDoc classDoc) {
         JSONObject classJSON = new JSONObject();
         classJSON.put("name", classDoc.name());
         classJSON.put("comment", classDoc.commentText());
@@ -69,9 +66,7 @@ public class DefaultSmallDocletImpl extends SmallDoclet {
         JSONObject classMappingInfo = getMappingInfo(classDoc);
         classJSON.put("mapping", classMappingInfo);
         classJSON.put("methods", getMehodDocsInfo(classDoc, classMappingInfo));//由于classJSON除方法信息外有额外信息，所以使用methods统一管理方法信息
-
-        getClassesJSONArray().add(classJSON);
-
+        return classJSON;
     }
 
     /**
