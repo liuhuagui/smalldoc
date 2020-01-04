@@ -10,11 +10,24 @@ public class Assert {
      * @param expected
      * @param message
      * @param args
-     * @see {@link String#format(String, Object...)}
+     * @see String#format(String, Object...)
      */
     public static void check(boolean expected, String message, Object... args) {
         if (!expected)
-            throw new AssertException(String.format(message, args));
+            throw new AssertException(message, args);
+    }
+
+    /**
+     * 如果notExpected为true，抛出异常
+     *
+     * @param notExpected
+     * @param message
+     * @param args
+     * @see String#format(String, Object...)
+     */
+    public static void checkNot(boolean notExpected, String message, Object... args) {
+        if (notExpected)
+            throw new AssertException(message, args);
     }
 
     /**
@@ -23,16 +36,22 @@ public class Assert {
      * @param target
      * @param message
      * @param args
-     * @see {@link String#format(String, Object...)}
+     * @see String#format(String, Object...)
      */
     public static void notNull(Object target, String message, Object... args) {
         if (target == null)
-            throw new AssertException(String.format(message, args));
+            throw new AssertException(message, args);
     }
 
+
     public static class AssertException extends RuntimeException {
-        public AssertException(String message) {
-            super(message);
+        /**
+         * @param message
+         * @param args
+         * @see String#format(String, Object...)
+         */
+        public AssertException(String message, Object... args) {
+            super(args.length == 0 ? message : String.format(message, args));
         }
     }
 }

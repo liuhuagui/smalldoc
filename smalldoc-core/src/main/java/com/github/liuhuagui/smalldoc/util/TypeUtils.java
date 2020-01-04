@@ -70,8 +70,15 @@ public class TypeUtils {
     }
 
     public static boolean isCollection(Type ptype) {
-        String typeName = ptype.typeName();
-        return typeName.equals("Set") || typeName.equals("List");
+        return isCollection(ptype.typeName());
+    }
+
+    public static boolean isCollection(String typeName) {
+        return typeName.equals("Set") || typeName.equals("List") || typeName.equals("ArrayList");
+    }
+
+    public static boolean isFile(String typeName) {
+        return typeName.equals("File") || typeName.equals("MultipartFile");
     }
 
     /**
@@ -98,66 +105,99 @@ public class TypeUtils {
         if (Objects.nonNull(beanFieldsMap.get(beanName)))
             return;
 
-        //如果该类型是参数化类型，去推断类型变量
+        //3. 如果该类型是参数化类型，去推断类型变量
         Map<String, com.sun.tools.javac.code.Type> typeVariableToTypeArgumentMap = null;
         if (type.asParameterizedType() != null) {
             typeVariableToTypeArgumentMap = typeVariableToTypeArgumentMap(type.asParameterizedType());
         }
 
+        //4. 在解析字段之前缓存该beanName，结合步骤2，避免循环引用
         List<FieldDocStorer> fieldDocStorers = new ArrayList<>();
         beanFieldsMap.put(beanName, fieldDocStorers);
 
-        Map<String, Map<String, FieldDocStorer>> entityAndFieldMap = doclet.getEntityAndFieldMap();
         Map<String, FieldDocStorer> nameAndFieldMap = new HashMap<>();
+        Map<String, Map<String, FieldDocStorer>> entityAndFieldMap = doclet.getEntityAndFieldMap();
         entityAndFieldMap.put(beanName, nameAndFieldMap);
 
-        for (FieldDoc fieldDoc : getFieldDocs(type, doclet)) {
-            Type ftype = fieldDoc.type();
-            FieldDocStorer fieldDocStorer = new FieldDocStorer();
-            //推断类型变量TypeVariable的实际类型
-            inferTypeVariableActualType(typeVariableToTypeArgumentMap, ftype, fieldDocStorer);
-            if (fieldDocStorer.getTypeArguments() == null)
-                fieldDocStorer.setTypeArguments(getTypeArgumentsOnFields(ftype, typeVariableToTypeArgumentMap, doclet));
-            fieldDocStorer.setComment(fieldDoc.commentText());
-            fieldDocStorer.setName(fieldDoc.name());
-            fieldDocStorer.setCollection(TypeUtils.isCollection(ftype));
-            fieldDocStorer.setArray(Utils.isNotBlank(ftype.dimension()));
-
-            //如果是List或Set
-            if (fieldDocStorer.isCollection()) {
-                Type typeArgument = ftype.asParameterizedType().typeArguments()[0];//仅支持单typeArgument
-                fieldDocStorer.setEleName(inferBeanName(typeArgument));
-                fieldDocStorer.setEntity(isEntity(typeArgument, doclet));
-            }
-
-            nameAndFieldMap.put(fieldDocStorer.getName(), fieldDocStorer);
-            fieldDocStorers.add(fieldDocStorer);
-            //如果不是库类型，保留字段
-            if (isEntity(ftype, doclet)) {//数组类型是否是库类型，与其元素类型一致
-                fieldDocStorer.setEntity(true);
-                addBean(ftype, doclet);
-            }
-        }
+        addFieldsToBean(type, doclet, typeVariableToTypeArgumentMap, fieldDocStorers, nameAndFieldMap, true);
     }
 
     /**
-     * 获取字段集合。如果类实现了{@link java.io.Serializable} 或 {@link java.io.Externalizable}那么返回序列化字段集合，
+     * 增加字段信息到Bean。如果类实现了{@link java.io.Serializable} 或 {@link java.io.Externalizable}那么返回序列化字段集合，
      * 否则，获取所有字段集合，不管Access Modifier <br>
      * 注意：如果是数组类型ArrayTypeImpl，则跳过数组维度，默认得到的即是元素类型字段的集合。
      *
      * @param type
      * @param doclet
-     * @return
+     * @param typeVariableToTypeArgumentMap
+     * @param fieldDocStorers
+     * @param nameAndFieldMap
+     * @param declared                      是否是直接声明的字段（非inherited）
      */
-    public static FieldDoc[] getFieldDocs(Type type, DefaultSmallDocletImpl doclet) {
+    public static void addFieldsToBean(Type type, DefaultSmallDocletImpl doclet,
+                                       Map<String, com.sun.tools.javac.code.Type> typeVariableToTypeArgumentMap,
+                                       List<FieldDocStorer> fieldDocStorers,
+                                       Map<String, FieldDocStorer> nameAndFieldMap,
+                                       boolean declared) {
         if (Objects.isNull(type) || isLibraryType(type, doclet))
-            return new FieldDoc[0];
+            return;
         ClassDoc classDoc = type.asClassDoc();//如果是数组类型ArrayTypeImpl，则跳过数组维度
         FieldDoc[] fields = classDoc.serializableFields();
         if (Utils.isEmpty(fields))
             fields = classDoc.fields(false);//不管Access Modifier
-        return Utils.addAll(fields, getFieldDocs(classDoc.superclassType(), doclet));
+
+        if (!Utils.isEmpty(fields)) {
+            for (FieldDoc fieldDoc : fields)
+                parseFieldDoc(doclet,
+                        typeVariableToTypeArgumentMap,
+                        fieldDocStorers,
+                        nameAndFieldMap,
+                        fieldDoc,
+                        declared);
+        }
+
+        addFieldsToBean(classDoc.superclassType(), doclet,
+                typeVariableToTypeArgumentMap,
+                fieldDocStorers,
+                nameAndFieldMap,
+                false);
     }
+
+    private static void parseFieldDoc(DefaultSmallDocletImpl doclet,
+                                      Map<String, com.sun.tools.javac.code.Type> typeVariableToTypeArgumentMap,
+                                      List<FieldDocStorer> fieldDocStorers,
+                                      Map<String, FieldDocStorer> nameAndFieldMap,
+                                      FieldDoc fieldDoc,
+                                      boolean declared) {
+        Type ftype = fieldDoc.type();
+        FieldDocStorer fieldDocStorer = new FieldDocStorer();
+        //推断类型变量TypeVariable的实际类型
+        inferTypeVariableActualType(typeVariableToTypeArgumentMap, ftype, fieldDocStorer);
+        if (fieldDocStorer.getTypeArguments() == null)
+            fieldDocStorer.setTypeArguments(getTypeArgumentsOnFields(ftype, typeVariableToTypeArgumentMap, doclet));
+
+        fieldDocStorer.setDeclared(declared);
+        fieldDocStorer.setComment(fieldDoc.commentText());
+        fieldDocStorer.setName(fieldDoc.name());
+        fieldDocStorer.setCollection(TypeUtils.isCollection(ftype));
+        fieldDocStorer.setArray(Utils.isNotBlank(ftype.dimension()));
+
+        //如果是List或Set
+        if (fieldDocStorer.isCollection()) {
+            Type typeArgument = ftype.asParameterizedType().typeArguments()[0];//仅支持单typeArgument
+            fieldDocStorer.setEleName(inferBeanName(typeArgument));
+            fieldDocStorer.setEntity(isEntity(typeArgument, doclet));
+        }
+
+        nameAndFieldMap.put(fieldDocStorer.getName(), fieldDocStorer);
+        fieldDocStorers.add(fieldDocStorer);
+        //如果不是库类型，保留字段
+        if (isEntity(ftype, doclet)) {//数组类型是否是库类型，与其元素类型一致
+            fieldDocStorer.setEntity(true);
+            addBean(ftype, doclet);
+        }
+    }
+
 
     /**
      * 对于ParameterizedType（泛型调用），typeVariable的实际类型由传入的typeArgument决定，所以不同的typeArgments

@@ -28,9 +28,19 @@ public class FieldDocStorer {
 
     private boolean array;
 
+    private boolean declared;
+
     private String eleName;
 
     private List<FieldDocStorer> typeArguments;
+
+    public boolean isDeclared() {
+        return declared;
+    }
+
+    public void setDeclared(boolean declared) {
+        this.declared = declared;
+    }
 
     public String getEleName() {
         return eleName;
@@ -102,5 +112,13 @@ public class FieldDocStorer {
 
     public void setTypeArguments(List<FieldDocStorer> typeArguments) {
         this.typeArguments = typeArguments;
+    }
+
+    public ParamTagStorer build(boolean required) {
+        ParamTagStorer paramTagStorer0 = new ParamTagStorer(this.getName(), required);
+        paramTagStorer0.setType(this.getType());
+        paramTagStorer0.setTypeArguments(this.getTypeArguments());
+        paramTagStorer0.setComment(this.getComment());
+        return paramTagStorer0;
     }
 }

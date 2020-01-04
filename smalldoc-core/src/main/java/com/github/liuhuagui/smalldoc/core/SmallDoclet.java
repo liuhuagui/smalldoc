@@ -5,6 +5,7 @@ import com.alibaba.fastjson.JSONObject;
 import com.github.liuhuagui.smalldoc.core.storer.FieldDocStorer;
 import com.github.liuhuagui.smalldoc.util.Assert;
 import com.sun.javadoc.*;
+import com.sun.tools.javac.util.StringUtils;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -69,15 +70,28 @@ public abstract class SmallDoclet extends Doclet {
             classes.add(handleClassDoc(classDoc));
             packageJSON = new JSONObject();
             packageJSON.put(CLASSES, classes);
-            packageJSON.put("comment", packageDoc.commentText());
 
-            Tag[] urls = packageDoc.tags("url");
-            if (urls != null && urls.length > 0) {
-                String url = urls[0].text();
-                packageJSON.put("url", url.endsWith("/") ? url : url + "/");
-            }
+            putPackageComment(packageDoc, packageName, packageJSON);
+            putPackageUrl(packageDoc, packageJSON);
+
             packagesJSON.put(packageName, packageJSON);
         }
+    }
+
+    private void putPackageUrl(PackageDoc packageDoc, JSONObject packageJSON) {
+        Tag[] urls = packageDoc.tags("url");
+        if (urls != null && urls.length > 0) {
+            String url = urls[0].text();
+            packageJSON.put("url", url.endsWith("/") ? url : url + "/");
+        }
+    }
+
+    private void putPackageComment(PackageDoc packageDoc, String packageName, JSONObject packageJSON) {
+        String comment = packageDoc.commentText();
+        if (comment != null && comment.trim().length() != 0)
+            packageJSON.put("comment", comment);
+        else
+            packageJSON.put("comment", packageName);
     }
 
     public Map<String, List<FieldDocStorer>> getBeanFieldsMap() {

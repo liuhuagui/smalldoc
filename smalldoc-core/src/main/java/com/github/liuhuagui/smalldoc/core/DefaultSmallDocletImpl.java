@@ -7,12 +7,16 @@ import com.github.liuhuagui.smalldoc.core.storer.MappingDescStorer;
 import com.github.liuhuagui.smalldoc.core.storer.MethodParamsStorer;
 import com.github.liuhuagui.smalldoc.core.storer.ParamTagStorer;
 import com.github.liuhuagui.smalldoc.util.Assert;
+import com.github.liuhuagui.smalldoc.util.ParamFormatUtils;
 import com.github.liuhuagui.smalldoc.util.TypeUtils;
 import com.github.liuhuagui.smalldoc.util.Utils;
 import com.sun.javadoc.*;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.stream.Stream;
+
+import static com.github.liuhuagui.smalldoc.core.constant.Constants.REQUEST_PARAM;
 
 
 /**
@@ -206,8 +210,8 @@ public class DefaultSmallDocletImpl extends SmallDoclet {
 
     /**
      * 查询方法的所有参数信息<br>
-     * Note: 如果你的参数在方法注释中不存在对应的@param，那么你的参数将被忽略，这有时可能也成为你所期望的。
-     * 如果你的方法注释中存在了某个@param，而方法中不存该参数，将或抛出异常提示。
+     * <b>Note</b>: 如果你的参数在方法注释中不存在对应的@param，那么你的参数将被忽略，这有时可能也成为你所期望的。
+     * 如果你的方法注释中存在了某个@param，而方法中不存该参数，将抛出断言异常。
      *
      * @param methodDoc
      * @return
@@ -215,72 +219,16 @@ public class DefaultSmallDocletImpl extends SmallDoclet {
     private JSONArray getParamDocsInfo(MethodDoc methodDoc) {
         //处理参数
         JSONArray paramsJSONArray = new JSONArray();
-
         MethodParamsStorer methodParamsStorer = new MethodParamsStorer(methodDoc);
         ParamTag[] paramTags = methodDoc.paramTags();
+
         for (ParamTag paramTag : paramTags) {
             String paramName = paramTag.parameterName();
-            handleParamDoc(methodParamsStorer.getParam(paramName), paramTag, paramsJSONArray);
+            ParamFormatUtils.formatParamDoc(this, methodParamsStorer.getParam(paramName), paramTag, paramsJSONArray);
         }
         return paramsJSONArray;
     }
 
-    /**
-     * 处理参数
-     *
-     * @param parameterDoc
-     * @param paramTag
-     * @param paramsJSONArray
-     */
-    private void handleParamDoc(Parameter parameterDoc, ParamTag paramTag, JSONArray paramsJSONArray) {
-        Type ptype = parameterDoc.type();
-        addParamBean(ptype);
-        //注意：如果数组类型ArrayTypeImpl中的元素类型是实体类型，那么该数组类型也是实体类型。
-        if (TypeUtils.isEntity(ptype, this)) {
-            handleEntityParamDoc(paramTag, paramsJSONArray, ptype);
-        } else {
-            handleNoEntityParamDoc(paramTag, paramsJSONArray, ptype);
-        }
-    }
-
-    /**
-     * 不管参数是不是实体类型，一定要解析它的泛型参数
-     *
-     * @param type
-     */
-    private void addParamBean(Type type) {
-        //先处理类型参数，后面再处理字段（保证TypeVariable的字段被处理）
-        TypeUtils.getTypeArguments(type, this);
-        if (TypeUtils.isEntity(type, this))
-            TypeUtils.addBean(type, this);
-    }
-
-    private void handleNoEntityParamDoc(ParamTag paramTag, JSONArray paramsJSONArray, Type ptype) {
-        if (TypeUtils.isCollection(ptype)) {
-            Type typeArgument = ptype.asParameterizedType().typeArguments()[0];
-            if (TypeUtils.isEntity(typeArgument, this)) {
-                ParamTagStorer.extractEntityParamTag(this, paramTag, typeArgument, true)
-                        .ifPresent(pStorer ->
-                                paramsJSONArray.addAll(pStorer.getFieldParamStorers())
-                        );
-                return;
-            }
-            //如果类型参数不是实体，continue直接处理该类型
-        }
-        //如果该类型不是集合，直接处理该类型
-        ParamTagStorer.extractGeneralParamTag(this, paramTag, ptype)
-                .ifPresent(paramsJSONArray::add);
-    }
-
-
-    private void handleEntityParamDoc(ParamTag paramTag, JSONArray paramsJSONArray, Type ptype) {
-        boolean array = Utils.isNotBlank(ptype.dimension());
-        //注意：如果是数组类型ArrayTypeImpl，解析字段时默认跳过数组维度，默认得到的即是元素类型字段的映射。
-        ParamTagStorer.extractEntityParamTag(this, paramTag, ptype, array)
-                .ifPresent(pStorer ->
-                        paramsJSONArray.addAll(pStorer.getFieldParamStorers())
-                );
-    }
 
     /**
      * 查询{@link ProgramElementDoc}的*Mapping注解信息

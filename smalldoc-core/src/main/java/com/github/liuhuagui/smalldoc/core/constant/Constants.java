@@ -2,6 +2,7 @@ package com.github.liuhuagui.smalldoc.core.constant;
 
 /**
  * 相关常量
+ *
  * @author KaiKang 799600902@qq.com
  */
 public class Constants {
@@ -12,4 +13,6 @@ public class Constants {
     public static final String CONTROLLER = "Controller";
 
     public static final String CLASSES = "classes";
+
+    public static final String REQUEST_PARAM = "RequestParam";
 }
