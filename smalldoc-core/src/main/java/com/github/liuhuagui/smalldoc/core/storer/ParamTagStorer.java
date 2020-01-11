@@ -21,7 +21,17 @@ public class ParamTagStorer {
      */
     private boolean required;
 
-    private Object example;
+    private String example;
+
+    /**
+     * 是否是文件类型
+     */
+    private boolean file;
+
+    /**
+     * 是否是多维类型，集合或数组
+     */
+    private boolean dimension;
 
     private List<ParamTagStorer> fieldParamStorers;
 
@@ -34,11 +44,27 @@ public class ParamTagStorer {
         this.required = required;
     }
 
-    public Object getExample() {
+    public boolean isFile() {
+        return file;
+    }
+
+    public void setFile(boolean file) {
+        this.file = file;
+    }
+
+    public boolean isDimension() {
+        return dimension;
+    }
+
+    public void setDimension(boolean dimension) {
+        this.dimension = dimension;
+    }
+
+    public String getExample() {
         return example;
     }
 
-    public void setExample(Object example) {
+    public void setExample(String example) {
         this.example = example;
     }
 

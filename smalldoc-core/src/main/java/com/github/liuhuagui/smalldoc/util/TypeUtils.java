@@ -77,8 +77,16 @@ public class TypeUtils {
         return typeName.equals("Set") || typeName.equals("List") || typeName.equals("ArrayList");
     }
 
+    public static boolean isFile(Type ptype) {
+        return isFile(ptype.typeName());
+    }
+
     public static boolean isFile(String typeName) {
         return typeName.equals("File") || typeName.equals("MultipartFile");
+    }
+
+    public static boolean isArray(Type ptype) {
+        return Utils.isNotBlank(ptype.dimension());
     }
 
     /**
@@ -181,12 +189,14 @@ public class TypeUtils {
         fieldDocStorer.setName(fieldDoc.name());
         fieldDocStorer.setCollection(TypeUtils.isCollection(ftype));
         fieldDocStorer.setArray(Utils.isNotBlank(ftype.dimension()));
+        fieldDocStorer.setFile(TypeUtils.isFile(ftype));
 
         //如果是List或Set
         if (fieldDocStorer.isCollection()) {
             Type typeArgument = ftype.asParameterizedType().typeArguments()[0];//仅支持单typeArgument
             fieldDocStorer.setEleName(inferBeanName(typeArgument));
             fieldDocStorer.setEntity(isEntity(typeArgument, doclet));
+            fieldDocStorer.setFile(TypeUtils.isFile(typeArgument));
         }
 
         nameAndFieldMap.put(fieldDocStorer.getName(), fieldDocStorer);

@@ -14,6 +14,7 @@ import org.slf4j.LoggerFactory;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -103,6 +104,8 @@ public class ParamFormatUtils {
     }
 
     private static void formatNoEntityParamDoc(DefaultSmallDocletImpl doclet, ParamTag paramTag, JSONArray paramsJSONArray, Type ptype, AnnotationDesc[] annotations) {
+        boolean file = TypeUtils.isFile(ptype);
+        boolean dimension = TypeUtils.isArray(ptype);
         if (TypeUtils.isCollection(ptype)) {
             Type typeArgument = ptype.asParameterizedType().typeArguments()[0];
             String currentMethodSignature = doclet.getCurrentMethodSignature();
@@ -112,13 +115,17 @@ public class ParamFormatUtils {
                     .filter(annotationDesc -> annotationDesc.annotationType().simpleTypeName().equals(REQUEST_PARAM))
                     .count();
             Assert.check(count == 1, "Method: %s, Param: %s, Spring MVC need @RequestParam annotation to support collections parameter of base or String type.", currentMethodSignature, parameterName);
+            file = TypeUtils.isFile(typeArgument);
+            dimension = true;
         }
-        extractGeneralParamTag(doclet, paramTag, ptype)
+
+        extractGeneralParamTag(doclet, paramTag, ptype, file, dimension)
+                .map(ParamFormatUtils.deriveExample(LocalDateTime.now()))
                 .ifPresent(paramsJSONArray::add);
     }
 
     private static void formatEntityParamDoc(DefaultSmallDocletImpl doclet, ParamTag paramTag, JSONArray paramsJSONArray, Type ptype) {
-        boolean array = Utils.isNotBlank(ptype.dimension());
+        boolean array = TypeUtils.isArray(ptype);
         Assert.checkNot(array, "Method: %s, Param: %s, Spring MVC does not support entity arrays parameter.", doclet.getCurrentMethodSignature(), paramTag.parameterName());
         //注意：如果是数组类型ArrayTypeImpl，解析字段时默认跳过数组维度，默认得到的即是元素类型字段的映射。
         extractEntityParamTag(doclet, paramTag, ptype)
@@ -133,12 +140,16 @@ public class ParamFormatUtils {
      * @param doclet
      * @param paramTag
      * @param type
+     * @param file      是否是文件
+     * @param dimension 是否是数组或集合
      * @return
      */
-    private static Optional<ParamTagStorer> extractGeneralParamTag(DefaultSmallDocletImpl doclet, ParamTag paramTag, Type type) {
+    private static Optional<ParamTagStorer> extractGeneralParamTag(DefaultSmallDocletImpl doclet, ParamTag paramTag, Type type, boolean file, boolean dimension) {
         ParamTagStorer paramTagStorer = new ParamTagStorer(paramTag.parameterName());
         paramTagStorer.setType(TypeUtils.getParamTypeWithDimension(type));
         paramTagStorer.setTypeArguments(TypeUtils.getTypeArguments(type, doclet));
+        paramTagStorer.setFile(file);
+        paramTagStorer.setDimension(dimension);
 
         String comment = paramTag.parameterComment();
         if (comment.endsWith(GENERAL_PARAM_TOKEN)) {
@@ -205,24 +216,35 @@ public class ParamFormatUtils {
             return Optional.empty();
 
         final LocalDateTime now = LocalDateTime.now();
-        List<ParamTagStorer> fieldParamStorers = paramTagStorerTempCache.entrySet().stream().map(entry -> {
-            ParamTagStorer paramTagStorer = entry.getValue();
-            //默认示例值
-            String example = "3";
-            //先以类型推断示例值
-            example = deriveExampleFromParamType(paramTagStorer, example, now);
-            //特殊的，如果是文件类型，则不进行命名推断
-            if (!example.equals(GENERAL_PARAM_TOKEN))
-                //用命名推断示例值，命名推断会覆盖类型推断
-                example = deriveExampleFromParamName(paramTagStorer.getName(), example, now);
-            paramTagStorer.setExample(example);
-            return paramTagStorer;
-        }).collect(Collectors.toList());
+        List<ParamTagStorer> fieldParamStorers = paramTagStorerTempCache.entrySet().stream().map(
+                entry -> deriveExample(now).apply(entry.getValue())
+        ).collect(Collectors.toList());
 
         ParamTagStorer paramTagStorer = new ParamTagStorer(paramTag.parameterName());
         paramTagStorer.setComment(matcher.group(1));
         paramTagStorer.setFieldParamStorers(fieldParamStorers);
         return Optional.of(paramTagStorer);
+    }
+
+    /**
+     * 高阶函数 —— 返回函数接口的函数（类似于Python中的装饰器函数）
+     *
+     * @param now
+     * @return
+     */
+    public static Function<ParamTagStorer, ParamTagStorer> deriveExample(LocalDateTime now) {
+        return paramTagStorer -> {
+            //默认示例值
+            String example = "3";
+            //先以类型推断示例值
+            example = deriveExampleFromParamType(paramTagStorer, example, now);
+            //特殊的，如果是文件类型，则不进行命名推断
+            if (example != null)
+                //用命名推断示例值，命名推断会覆盖类型推断
+                example = deriveExampleFromParamName(paramTagStorer.getName(), example, now);
+            paramTagStorer.setExample(example);
+            return paramTagStorer;
+        };
     }
 
     private static String deriveExampleFromParamType(ParamTagStorer paramTagStorer, String example, LocalDateTime now) {
@@ -233,10 +255,11 @@ public class ParamFormatUtils {
         return example;
     }
 
+
     private static String deriveExampleFromType(String type, String example, LocalDateTime now) {
         //如果是文件类型，做特殊标记
         if (TypeUtils.isFile(type))
-            return GENERAL_PARAM_TOKEN;
+            return null;
         String type0 = type.toLowerCase();
         if (type0.contains("time")) {
             example = now.format(FORMATTER);
@@ -387,9 +410,7 @@ public class ParamFormatUtils {
             //如果没有包含下一层字段
             if (!tokenizer.hasMoreTokens()) {
                 Assert.checkNot(fieldDocStorer.isEntity(), "Method: %s, FormatFieldName: %s, This field %s or its elements is an entity type. More fine-grained config is required.", currentMethodSignature, formatFieldName, name);
-                paramTagStorer.setType(fieldDocStorer.getType());
-                paramTagStorer.setTypeArguments(fieldDocStorer.getTypeArguments());
-                paramTagStorer.setComment(fieldDocStorer.getComment());
+                FieldDocStorer.fill(fieldDocStorer, paramTagStorer);
                 break;
             } else {
                 Assert.check(fieldDocStorer.isEntity(), "Method: %s, FormatFieldName: %s, This field %s or its elements should be an entity type.", currentMethodSignature, formatFieldName, name);

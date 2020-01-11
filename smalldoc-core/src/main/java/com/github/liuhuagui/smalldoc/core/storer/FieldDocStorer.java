@@ -28,11 +28,21 @@ public class FieldDocStorer {
 
     private boolean array;
 
+    private boolean file;
+
     private boolean declared;
 
     private String eleName;
 
     private List<FieldDocStorer> typeArguments;
+
+    public boolean isFile() {
+        return file;
+    }
+
+    public void setFile(boolean file) {
+        this.file = file;
+    }
 
     public boolean isDeclared() {
         return declared;
@@ -116,9 +126,15 @@ public class FieldDocStorer {
 
     public ParamTagStorer build(boolean required) {
         ParamTagStorer paramTagStorer0 = new ParamTagStorer(this.getName(), required);
-        paramTagStorer0.setType(this.getType());
-        paramTagStorer0.setTypeArguments(this.getTypeArguments());
-        paramTagStorer0.setComment(this.getComment());
+        fill(this, paramTagStorer0);
         return paramTagStorer0;
+    }
+
+    public static void fill(FieldDocStorer fieldDocStorer, ParamTagStorer paramTagStorer0) {
+        paramTagStorer0.setType(fieldDocStorer.getType());
+        paramTagStorer0.setTypeArguments(fieldDocStorer.getTypeArguments());
+        paramTagStorer0.setComment(fieldDocStorer.getComment());
+        paramTagStorer0.setFile(fieldDocStorer.isFile());
+        paramTagStorer0.setDimension(fieldDocStorer.isCollection() || fieldDocStorer.isArray());
     }
 }
