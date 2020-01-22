@@ -416,7 +416,7 @@ public class ParamFormatUtils {
                 Assert.check(fieldDocStorer.isEntity(), "Method: %s, FormatFieldName: %s, This field %s or its elements should be an entity type.", currentMethodSignature, formatFieldName, name);
                 //元素类型是实体类型的集合或数组类型需要加“[]”后缀
                 if (fieldDocStorer.isCollection() || fieldDocStorer.isArray())
-                    paramTagStorer.setName(paramTagStorer.getName() + "[]");
+                    paramTagStorer.setName(paramTagStorer.getName() + "[0]");
                 nameAndFieldMap = doclet.getNameAndFieldMap(fieldDocStorer.isCollection() ? fieldDocStorer.getEleName() : fieldDocStorer.getQtype());
             }
         }
