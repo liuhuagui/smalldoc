@@ -1,6 +1,5 @@
 package com.github.liuhuagui.smalldoc.core;
 
-import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import com.github.liuhuagui.smalldoc.core.storer.FieldDocStorer;
 import com.github.liuhuagui.smalldoc.properties.SmallDocProperties;
@@ -9,6 +8,7 @@ import com.sun.tools.javadoc.Main;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.File;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -25,7 +25,7 @@ public class SmallDocContext {
     /**
      * 默认的sourcepath
      */
-    private static final String DEFAULT_SOURCE_PATH = System.getProperty("user.dir") + "\\src\\main\\java";
+    private static final String DEFAULT_SOURCE_PATH = System.getProperty("user.dir") + File.separator + "src" + File.separator + "main" + File.separator + "java";
 
     /**
      * 文档结构，包含工程以外的信息
@@ -92,10 +92,12 @@ public class SmallDocContext {
      * 执行文档解析
      */
     public void execute(SmallDoclet doclet) {
-        String sourcepath = Utils.join(paths, ";");
+        //Separate multiple paths with a semicolon (;) on Windows or a colon (:) on UNIX.
+        String sourcepath = Utils.join(paths, File.pathSeparator);
         docsJSON.put("sourcepath", sourcepath);
         log.info("-sourcepath is {}", sourcepath);
 
+        //-subpackages. Arguments are separated by colons on all operating systems.
         String subpackages = Utils.join(packages, ":");
         docsJSON.put("subpackages", subpackages);
         log.info("-subpackages is {}", subpackages);
